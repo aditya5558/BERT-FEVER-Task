@@ -71,7 +71,6 @@ def repl(doc):
 	doc = doc.replace('(', '-LRB-')
 	doc = doc.replace(')', '-RRB-')
 	doc = doc.replace(':', '-COLON-')
-
 	return doc
 
 def filter(documents, claim):
@@ -84,12 +83,10 @@ def filter(documents, claim):
 	for doc in documents:
 		left = doc.find('(')
 		right = doc.find(')')
-
 		if (left != -1 and right != -1):
 			new_doc = doc[:left] + doc[right+1:]
 		else:
 			new_doc = doc
-
 		doc_tokens = word_tokenize(new_doc) 
 		doc_tokens = [stemmer.stem(token.lower()) for token in doc_tokens]
 		doc_tokens = list(set(doc_tokens))
@@ -104,12 +101,10 @@ def filter(documents, claim):
 			doc = repl(doc)
 			doc = unicodedata.normalize('NFD', doc)
 			final_documents.append(doc)
-
 	return final_documents
 
 
 def doc_retriever(claim):
-	
 	# Step 1: Mention Extraction
 	parse = predictor.predict(claim)
 	root = parse['hierplane_tree']['root']
@@ -121,14 +116,13 @@ def doc_retriever(claim):
 	entities.extend(np_list)
 	entities.extend(other_entities)
 	entities.append(claim)
-
 	entities = list(set(entities))
+
 	# Step 2: Candidate Article Search
 	documents = wiki_search(claim, entities)
 
 	# Step 3: Candidate Filtering
 	final_documents = filter(documents, claim)
-
 	return final_documents
 
 def doc_retrieval_acc(file_path):
@@ -147,7 +141,6 @@ def doc_retrieval_acc(file_path):
 			for line in evidence:
 				if line[2]:
 					ref.append(line[2])
-
 		reference_docs.append(list(set(ref)))
 
 	processed_claims = len(claims)
@@ -171,6 +164,31 @@ def doc_retrieval_acc(file_path):
 	print("Correct: {}".format(correct))
 	print("Document Retrieval Accuracy: {}".format(correct/processed_claims))
 
+def write_to_file(in_path, out_path):
+	evidence_sets = []
+	claims = []
+	with open(in_path, 'r') as f:
+		for line in f.readlines():
+			evidence_sets.append(json.loads(line.strip())['evidence'])
+			claims.append(json.loads(line.strip())['claim'])
+
+	processed_claims = len(claims)
+	print("Total: {}".format(processed_claims))
+
+	pool = ThreadPool(16)
+	predicted_docs = list(tqdm.tqdm(pool.imap(doc_retriever, claims), total=processed_claims))
+	pool.close()
+	pool.join()
+
+	for i in range(processed_claims):
+		file_dict = {}
+		file_dict['claim'] = claims[i]
+		file_dict['docs'] = predicted_docs[i]
+
+		with open(out_path, 'a+') as fout:
+			json.dump(file_dict, fout)
+			fout.write('\n')
+
 if __name__ == '__main__':
 	
 	# Sample Claims for testing
@@ -179,8 +197,12 @@ if __name__ == '__main__':
 	# claim = "Wish Upon starred a person."
 	# print(doc_retriever(claim))
 
-	file_path = 'data/fever-data/dev.jsonl'
-	doc_retrieval_acc(file_path)
+	in_path = 'data/fever-data/dev.jsonl'
+	out_path = 'dev_out.txt'
+
+	# doc_retrieval_acc(in_path)
+	write_to_file(in_path, out_path)
+
 
 
 
