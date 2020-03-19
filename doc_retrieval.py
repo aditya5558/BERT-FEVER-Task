@@ -1,4 +1,3 @@
-from mediawiki import MediaWiki
 from allennlp.predictors import Predictor
 from allennlp.models.archival import load_archive
 from nltk.stem import PorterStemmer 
@@ -7,13 +6,18 @@ import json
 from multiprocessing.dummy import Pool as ThreadPool
 import tqdm
 import unicodedata
+import wikipedia
 
-####### Doc Retrieval Accuracy: 83.31% 
+####### Doc Retrieval Accuracy: 83.46% 
 
-wikipedia = MediaWiki()
 archive = load_archive("https://s3-us-west-2.amazonaws.com/allennlp/models/elmo-constituency-parser-2018.03.14.tar.gz")
 predictor = Predictor.from_archive(archive, 'constituency-parser')
 
+# Get doc ids in wikipedia dump
+with open('IDs.txt', 'r') as f:
+		doc_ids = f.read()
+
+# Extract Noun Phrases from Constituency Parse Tree
 def extract_noun_phrases(root):
 	np_list = []
 	stack = [root]
@@ -27,6 +31,7 @@ def extract_noun_phrases(root):
 				stack.append(child)
 	return np_list
 
+# Extract entities before main verb
 def extract_other_entities(root, claim):
 	other_entities = []
 	words = []
@@ -41,6 +46,7 @@ def extract_other_entities(root, claim):
 			words.append(word)
 	return other_entities
 
+# Find Nodetype of a word in Constituency Tree
 def find_word(root, word):
 	stack = [root]
 	while len(stack):
@@ -52,6 +58,7 @@ def find_word(root, word):
 				stack.append(child)
 	return None
 
+# Perform search on entities using mediawiki api
 def wiki_search(claim, entities):
 	k = 7
 	documents = []
@@ -66,6 +73,7 @@ def wiki_search(claim, entities):
 
 	return list(set(documents))
 
+# Function to get doc/claim in proper dataset format
 def repl(doc):
 	doc = doc.replace(' ', '_')
 	doc = doc.replace('(', '-LRB-')
@@ -73,6 +81,7 @@ def repl(doc):
 	doc = doc.replace(':', '-COLON-')
 	return doc
 
+# Filter out documents (Step 3: Candidate Filtering)
 def filter(documents, claim):
 	final_documents = []
 	stemmer = PorterStemmer() 
@@ -103,28 +112,31 @@ def filter(documents, claim):
 			final_documents.append(doc)
 	return final_documents
 
-
+# Retrieve documents using 3 steps
 def doc_retriever(claim):
 	# Step 1: Mention Extraction
 	parse = predictor.predict(claim)
 	root = parse['hierplane_tree']['root']
 
-	np_list = extract_noun_phrases(root)
+	noun_phrases = extract_noun_phrases(root)
 	other_entities = extract_other_entities(root, claim)
 
 	entities = []
-	entities.extend(np_list)
+	entities.extend(noun_phrases)
 	entities.extend(other_entities)
 	entities.append(claim)
 	entities = list(set(entities))
 
 	# Step 2: Candidate Article Search
 	documents = wiki_search(claim, entities)
+	dump_docs = extract_from_dump(noun_phrases)
+	documents.extend(dump_docs)
 
 	# Step 3: Candidate Filtering
 	final_documents = filter(documents, claim)
 	return final_documents
 
+# Compute document retrieval accuracy on verifiable claims
 def doc_retrieval_acc(file_path):
 	evidence_sets = []
 	claims = []
@@ -146,6 +158,7 @@ def doc_retrieval_acc(file_path):
 	processed_claims = len(claims)
 	print("Total: {}".format(processed_claims))
 
+	# Use thread pool to parallelize
 	pool = ThreadPool(16)
 	predicted_docs = list(tqdm.tqdm(pool.imap(doc_retriever, claims), total=processed_claims))
 	pool.close()
@@ -164,6 +177,7 @@ def doc_retrieval_acc(file_path):
 	print("Correct: {}".format(correct))
 	print("Document Retrieval Accuracy: {}".format(correct/processed_claims))
 
+# Write document ids (names) to file in json format
 def write_to_file(in_path, out_path):
 	claims = []
 	with open(in_path, 'r') as f:
@@ -173,6 +187,7 @@ def write_to_file(in_path, out_path):
 	processed_claims = len(claims)
 	print("Total: {}".format(processed_claims))
 
+	# Use thread pool to parallelize
 	pool = ThreadPool(16)
 	predicted_docs = list(tqdm.tqdm(pool.imap(doc_retriever, claims), total=processed_claims))
 	pool.close()
@@ -187,19 +202,33 @@ def write_to_file(in_path, out_path):
 			json.dump(file_dict, fout)
 			fout.write('\n')
 
+# Extract documents from wikipedia 2017 dump provided in dataset
+def extract_from_dump(entities):
+	entities = [repl(entity) for entity in entities]
+	docs = []
+	for entity in entities:
+		if entity in doc_ids:
+			docs.append(entity)
+	return docs
+
 if __name__ == '__main__':
 	
 	# Sample Claims for testing
-	# claim = "Colin Kaepernick became a starting quarterback during the 49ers 63rd season in the National Football League."
-	# claim = "Down With Love is a 2003 comedy film."	
-	# claim = "Wish Upon starred a person."
-	# print(doc_retriever(claim))
+
+	claim1 = "Colin Kaepernick became a starting quarterback during the 49ers 63rd season in the National Football League."
+	claim2 = "Down With Love is a 2003 comedy film."	
+	claim3 = "Wish Upon starred a person."
+
+	print(doc_retriever(claim1))
 
 	in_path = 'data/fever-data/dev.jsonl'
 	out_path = 'dev_out.txt'
 
-	# doc_retrieval_acc(in_path)
+	doc_retrieval_acc(in_path)
 	write_to_file(in_path, out_path)
+
+
+
 
 
 
