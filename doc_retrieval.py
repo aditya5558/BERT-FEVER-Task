@@ -165,11 +165,9 @@ def doc_retrieval_acc(file_path):
 	print("Document Retrieval Accuracy: {}".format(correct/processed_claims))
 
 def write_to_file(in_path, out_path):
-	evidence_sets = []
 	claims = []
 	with open(in_path, 'r') as f:
 		for line in f.readlines():
-			evidence_sets.append(json.loads(line.strip())['evidence'])
 			claims.append(json.loads(line.strip())['claim'])
 
 	processed_claims = len(claims)
