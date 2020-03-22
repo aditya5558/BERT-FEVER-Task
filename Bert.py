@@ -1,18 +1,8 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence, PackedSequence
-
-
-# In[2]:
-
 
 class Config():
     
@@ -72,10 +62,6 @@ class EmbeddingLayer(nn.Module):
         
         return output
 
-
-# In[4]:
-
-
 class MultiHeadSelfAttentionLayer(nn.Module):
     
     def __init__(self, config):
@@ -124,9 +110,6 @@ class MultiHeadSelfAttentionLayer(nn.Module):
         return out
 
 
-# In[5]:
-
-
 # https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/model/utils/gelu.py
 
 class GELU(nn.Module):
@@ -136,9 +119,6 @@ class GELU(nn.Module):
 
     def forward(self, x):
         return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
-
-
-# In[6]:
 
 
 class FeedForwardLayer(nn.Module):
@@ -166,9 +146,6 @@ class FeedForwardLayer(nn.Module):
         out = self.layer_norm(out)
         
         return out
-
-
-# In[7]:
 
 
 class EncoderLayer(nn.Module):
@@ -211,9 +188,6 @@ class BERTEncoder(nn.Module):
             embeddings = encoder(embeddings, mask)
             
         return embeddings
-
-
-# In[9]:
 
 
 config = Config()
@@ -289,22 +263,8 @@ def load_model(model, checkpoint_file):
         })
 
 
-# In[13]:
-
 
 weights_path = "weights_uncased/bert_model.ckpt"
 load_model(model, weights_path)
-
-
-# In[27]:
-
-
-for params in model.named_parameters():
-    print(params[0])
-
-
-# In[ ]:
-
-
 
 
