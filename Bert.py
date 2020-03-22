@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -32,15 +33,11 @@ class Config():
         # Encoder
         self.num_encoders = 12
 
-
-# In[3]:
-
-
 class EmbeddingLayer(nn.Module):
     
     def __init__(self, config):
         
-        super(EmbeddingLayer, self).__init__()
+        super().__init__()
         
         self.token_embeddings = nn.Embedding(num_embeddings=config.vocab_size, embedding_dim=config.emb_dim)
         self.sentence_embeddings = nn.Embedding(num_embeddings=config.sent_size, embedding_dim=config.emb_dim)
@@ -66,10 +63,10 @@ class MultiHeadSelfAttentionLayer(nn.Module):
     
     def __init__(self, config):
         
-        super(MultiHeadSelfAttentionLayer, self).__init__()
+        super().__init__()
         
         #config.num_heads should divide config.emb_dim
-        self.each_head_dim = config.emb_dim/config.num_heads
+        self.each_head_dim = config.emb_dim//config.num_heads
         
         self.queries = nn.Linear(in_features=config.emb_dim, out_features=config.emb_dim)
         self.keys = nn.Linear(in_features=config.emb_dim, out_features=config.emb_dim)
@@ -82,20 +79,20 @@ class MultiHeadSelfAttentionLayer(nn.Module):
         self.linear = nn.Linear(in_features=config.emb_dim, out_features=config.emb_dim)
         
     
-    def forwards(self, X, mask=None):
+    def forward(self, X, mask=None):
         
         Q = self.queries(X)
         K = self.keys(X)
         V = self.values(X)
         
-        old_shape = list(Q.shape())
+        old_shape = list(Q.shape)
         new_shape = old_shape[:-1] + [config.num_heads, self.each_head_dim]
         
         Q = torch.transpose(torch.reshape(Q, new_shape), 1, 2)
         K = torch.transpose(torch.reshape(K, new_shape), 1, 2)
         V = torch.transpose(torch.reshape(V, new_shape), 1, 2)
         
-        scores = torch.matmul(Q, torch.transpose(K, -1, -2))/torch.sqrt(self.each_head_dim)
+        scores = torch.matmul(Q, torch.transpose(K, -1, -2))/np.sqrt(self.each_head_dim)
         
         if mask is not None:
             scores -= 10000.0 * (1.0 - mask)
@@ -125,7 +122,7 @@ class FeedForwardLayer(nn.Module):
     
     def __init__(self, config):
         
-        super(FeedForwardLayer, self).__init__()
+        super().__init__()
         
         self.fc1 = nn.Linear(in_features=config.emb_dim, out_features=config.hidden_dim)
         self.fc2 = nn.Linear(in_features=config.hidden_dim, out_features=config.emb_dim)
@@ -140,7 +137,7 @@ class FeedForwardLayer(nn.Module):
         out = self.gelu(out)
         out = self.fc2(out)
         
-        out = self.dropout(out)
+        out = self.fc_dropout(out)
         
         out += X
         out = self.layer_norm(out)
@@ -152,7 +149,7 @@ class EncoderLayer(nn.Module):
     
     def __init__(self, config):
         
-        super(EncoderLayer, self).__init__()
+        super().__init__()
         
         self.self_attention = MultiHeadSelfAttentionLayer(config)
         
@@ -166,14 +163,11 @@ class EncoderLayer(nn.Module):
         return out
 
 
-# In[8]:
-
-
 class BERTEncoder(nn.Module):
     
     def __init__(self, config):
         
-        super(BERTEncoder, self).__init__()
+        super().__init__()
         
         self.enbedding_layer = EmbeddingLayer(config)
         
@@ -193,9 +187,6 @@ class BERTEncoder(nn.Module):
 config = Config()
 
 model = BERTEncoder(config)
-
-
-# In[12]:
 
 
 # https://github.com/dhlee347/pytorchic-bert/blob/master/checkpoint.py
@@ -263,8 +254,15 @@ def load_model(model, checkpoint_file):
         })
 
 
-
 weights_path = "weights_uncased/bert_model.ckpt"
 load_model(model, weights_path)
+
+
+pos_ip = torch.unsqueeze(torch.arange(0, 512, dtype=torch.long), dim=0)
+token_ip = torch.randint(low=0, high=30000, size=(1, 512)).type(torch.LongTensor)
+sent_ip = torch.zeros(size=(1, 512), dtype=torch.long)
+sent_ip[:, 256:] = 1
+
+out = model(token_ip, sent_ip, pos_ip)
 
 
