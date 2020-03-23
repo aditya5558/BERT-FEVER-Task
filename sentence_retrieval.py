@@ -120,7 +120,7 @@ def preprocess(data):
         tok_ip[pos] = tok
         pos_ip[pos] = pos_val
         masks[pos] = mask
-        break
+        
     masks = masks[:, None, None, :]
     return tok_ip, sent_ip, pos_ip, masks
 
