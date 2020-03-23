@@ -66,6 +66,7 @@ class MultiHeadSelfAttentionLayer(nn.Module):
         super().__init__()
         
         #config.num_heads should divide config.emb_dim
+        self.config = config
         self.each_head_dim = config.emb_dim//config.num_heads
         
         self.queries = nn.Linear(in_features=config.emb_dim, out_features=config.emb_dim)
@@ -86,7 +87,7 @@ class MultiHeadSelfAttentionLayer(nn.Module):
         V = self.values(X)
         
         old_shape = list(Q.shape)
-        new_shape = old_shape[:-1] + [config.num_heads, self.each_head_dim]
+        new_shape = old_shape[:-1] + [self.config.num_heads, self.each_head_dim]
         
         Q = torch.transpose(torch.reshape(Q, new_shape), 1, 2)
         K = torch.transpose(torch.reshape(K, new_shape), 1, 2)
@@ -184,10 +185,6 @@ class BERTEncoder(nn.Module):
         return embeddings
 
 
-config = Config()
-
-model = BERTEncoder(config)
-
 
 # https://github.com/dhlee347/pytorchic-bert/blob/master/checkpoint.py
 
@@ -253,16 +250,20 @@ def load_model(model, checkpoint_file):
             b.feed_forward.layer_norm.bias:           p+"output/LayerNorm/beta",
         })
 
+if __name__ == "__main__":
 
-weights_path = "weights_uncased/bert_model.ckpt"
-load_model(model, weights_path)
+    config = Config()
+
+    model = BERTEncoder(config)
+    weights_path = "weights_uncased/bert_model.ckpt"
+    load_model(model, weights_path)
 
 
-pos_ip = torch.unsqueeze(torch.arange(0, 512, dtype=torch.long), dim=0)
-token_ip = torch.randint(low=0, high=30000, size=(1, 512)).type(torch.LongTensor)
-sent_ip = torch.zeros(size=(1, 512), dtype=torch.long)
-sent_ip[:, 256:] = 1
+    pos_ip = torch.unsqueeze(torch.arange(0, 512, dtype=torch.long), dim=0)
+    token_ip = torch.randint(low=0, high=30000, size=(1, 512)).type(torch.LongTensor)
+    sent_ip = torch.zeros(size=(1, 512), dtype=torch.long)
+    sent_ip[:, 256:] = 1
 
-out = model(token_ip, sent_ip, pos_ip)
+    out = model(token_ip, sent_ip, pos_ip)
 
 
