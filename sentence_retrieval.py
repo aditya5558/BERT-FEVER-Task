@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader, Dataset 
+from multiprocessing.dummy import Pool as ThreadPool
 
 
 # In[2]:
@@ -128,7 +129,11 @@ def preprocess(data):
 
 if not os.path.exists("train/train-tok.npy"):
     data, labels = load_data("train-data.jsonl")
-    tok_ip, sent_ip, pos_ip, masks = preprocess(data)
+    
+    pool = ThreadPool(16)
+	tok_ip, sent_ip, pos_ip, masks = list(tqdm.tqdm(pool.imap(preprocess, data), total=len(data))
+    
+    #tok_ip, sent_ip, pos_ip, masks = preprocess(data)
     labels = np.array(labels)
     os.mkdir("train")
     np.save("train/train-tok.npy", tok_ip)
