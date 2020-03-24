@@ -117,6 +117,7 @@ def preprocess(data):
         tok_ip[pos] = tok
         pos_ip[pos] = pos_val
         masks[pos] = mask
+        sent_ip[pos] = sent
         
     masks = masks[:, None, None, :]
     return tok_ip, sent_ip, pos_ip, masks
@@ -132,13 +133,13 @@ if not os.path.exists("train/train-tok.npy"):
     os.mkdir("train")
     np.save("train/train-tok.npy", tok_ip)
     np.save("train/train-sent.npy", sent_ip)
-    np.save("train/train-sent.npy", pos_ip)
+    np.save("train/train-pos.npy", pos_ip)
     np.save("train/train-masks.npy", masks)
     np.save("train/train-labels.npy", labels)
 else:
     tok_ip = np.load("train/train-tok.npy")
     sent_ip = np.load("train/train-sent.npy")
-    pos_ip = np.load("train/train-sent.npy")
+    pos_ip = np.load("train/train-pos.npy")
     masks = np.load("train/train-masks.npy")
     labels = np.load("train/train-labels.npy")   
 
