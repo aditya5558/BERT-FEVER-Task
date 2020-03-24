@@ -70,10 +70,10 @@ def load_data(fname):
 
 def preprocess(data):
     tokenizer = FullTokenizer(vocab_file)
-    tok_ip = np.zeros((len(data), 128), dtype="int16")
-    sent_ip = np.zeros((len(data), 128), dtype="int16")
-    pos_ip = np.zeros((len(data), 128), dtype="int16")
-    masks = np.zeros((len(data), 128), dtype="float32")
+    tok_ip = np.zeros((len(data), 128), dtype="int32")
+    sent_ip = np.zeros((len(data), 128), dtype="int8")
+    pos_ip = np.zeros((len(data), 128), dtype="int8")
+    masks = np.zeros((len(data), 128), dtype="int8")
     
     for pos, text in tqdm.tqdm_notebook(enumerate(data)):
         tok0 = tokenizer.tokenize(text[0])
@@ -158,7 +158,7 @@ def train(model, loader, criterion, optimizer):
         tok_ip = tok_ip.type(torch.LongTensor).to(device)
         sent_ip = sent_ip.type(torch.LongTensor).to(device)
         pos_ip = pos_ip.type(torch.LongTensor).to(device)
-        masks = masks.to(device)
+        masks = masks.type(torch.FloatTensor).to(device)
         y = y.to(device)
         O = model(tok_ip, sent_ip, pos_ip, masks)
         loss = criterion(O, y)
