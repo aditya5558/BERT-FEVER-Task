@@ -131,7 +131,7 @@ if not os.path.exists("train/train-tok.npy"):
     data, labels = load_data("train-data.jsonl")
     
     pool = ThreadPool(16)
-	tok_ip, sent_ip, pos_ip, masks = list(tqdm.tqdm(pool.imap(preprocess, data), total=len(data))
+    tok_ip, sent_ip, pos_ip, masks = list(tqdm.tqdm(pool.imap(preprocess, data), total=len(data))
     
     #tok_ip, sent_ip, pos_ip, masks = preprocess(data)
     labels = np.array(labels)
