@@ -20,7 +20,7 @@ class Config():
         self.emb_dim = 768
         
         # Embedding layer dropout rate
-        self.emb_drop_rate = 0.5
+        self.emb_drop_rate = 0.1
         
         # Attention Layer
         self.num_heads = 12
