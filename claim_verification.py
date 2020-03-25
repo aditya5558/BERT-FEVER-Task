@@ -14,7 +14,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 weights_path = "NN-NLP-Project-Data/uncased_L-12_H-768_A-12/bert_model.ckpt"
 vocab_file = "NN-NLP-Project-Data/uncased_L-12_H-768_A-12/vocab.txt"
-model_name = "ClaimVerification"
+model_name = "ClaimVerification.pt"
 
 class SentenceDataset(Dataset):
     def __init__(self, tok_ip, sent_ip, pos_ip, masks, y):
@@ -65,7 +65,6 @@ def load_data(fname):
         claim_ids.append(line['id'])
         predicted_evidence.append([line['doc'], line['sid']])
     f.close()
-    
     return data, labels, claim_ids, predicted_evidence
 
 def preprocess(data):
@@ -75,7 +74,7 @@ def preprocess(data):
     pos_ip = np.zeros((len(data), 128), dtype="int8")
     masks = np.zeros((len(data), 128), dtype="int8")
     
-    for pos, text in tqdm.tqdm_notebook(enumerate(data)):
+    for pos, text in tqdm.tqdm(enumerate(data)):
         tok0 = tokenizer.tokenize(text[0])
         tok1 = tokenizer.tokenize(text[1])
         tok = tok0 + tok1
@@ -97,64 +96,66 @@ def preprocess(data):
     masks = masks[:, None, None, :]
     return tok_ip, sent_ip, pos_ip, masks
 
-if not os.path.exists("train/train-tok.npy"):
-    data, labels, ids, predicted_evidence = load_data("train-data.jsonl")
+if not os.path.exists("train_claim/train-tok.npy"):
+    data, labels, ids, predicted_evidence = load_data("train_sent_results.txt")
     tok_ip, sent_ip, pos_ip, masks = preprocess(data)
     labels = np.array(labels)
-    os.mkdir("train")
-    np.save("train/train-tok.npy", tok_ip)
-    np.save("train/train-sent.npy", sent_ip)
-    np.save("train/train-pos.npy", pos_ip)
-    np.save("train/train-masks.npy", masks)
-    np.save("train/train-labels.npy", labels)
+    os.mkdir("train_claim")
+    np.save("train_claim/train-tok.npy", tok_ip)
+    np.save("train_claim/train-sent.npy", sent_ip)
+    np.save("train_claim/train-pos.npy", pos_ip)
+    np.save("train_claim/train-masks.npy", masks)
+    np.save("train_claim/train-labels.npy", labels)
 else:
-    data, labels, ids, predicted_evidence = load_data("train-data.jsonl")
+    data, labels, ids, predicted_evidence = load_data("train_sent_results.txt")
     tok_ip = np.load("train/train-tok.npy")
     sent_ip = np.load("train/train-sent.npy")
     pos_ip = np.load("train/train-pos.npy")
     masks = np.load("train/train-masks.npy")
     labels = np.load("train/train-labels.npy")
 
-if not os.path.exists("dev/dev-tok.npy"):
-    data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("dev-data.jsonl")
+if not os.path.exists("dev_claim/dev-tok.npy"):
+    data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("dev_sent_results.txt")
     tok_ip_dev, sent_ip_dev, pos_ip_dev, masks_dev = preprocess(data_dev)
     labels_dev = np.array(labels_dev)
-    os.mkdir("dev")
-    np.save("dev/dev-tok.npy", tok_ip_dev)
-    np.save("dev/dev-sent.npy", sent_ip_dev)
-    np.save("dev/dev-pos.npy", pos_ip_dev)
-    np.save("dev/dev-masks.npy", masks_dev)
-    np.save("dev/dev-labels.npy", labels_dev)
+    os.mkdir("dev_claim")
+    np.save("dev_claim/dev-tok.npy", tok_ip_dev)
+    np.save("dev_claim/dev-sent.npy", sent_ip_dev)
+    np.save("dev_claim/dev-pos.npy", pos_ip_dev)
+    np.save("dev_claim/dev-masks.npy", masks_dev)
+    np.save("dev_claim/dev-labels.npy", labels_dev)
 else:
-    data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("dev-data.jsonl")
-    tok_ip_dev = np.load("dev/dev-tok.npy")
-    sent_ip_dev = np.load("dev/dev-sent.npy")
-    pos_ip_dev = np.load("dev/dev-pos.npy")
-    masks_dev = np.load("dev/dev-masks.npy")
-    labels_dev = np.load("dev/dev-labels.npy")
+    print('Loading npy files')
+    data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("dev_sent_results.txt")
+    tok_ip_dev = np.load("dev_claim/dev-tok.npy")
+    sent_ip_dev = np.load("dev_claim/dev-sent.npy")
+    pos_ip_dev = np.load("dev_claim/dev-pos.npy")
+    masks_dev = np.load("dev_claim/dev-masks.npy")
+    labels_dev = np.load("dev_claim/dev-labels.npy")
 
-if not os.path.exists("test/test-tok.npy"):
-    data_test, labels_test, ids_test, predicted_evidence_test = load_data("test-data.jsonl")
+if not os.path.exists("test_claim/test-tok.npy"):
+    data_test, labels_test, ids_test, predicted_evidence_test = load_data("test_sent_results.txt")
     tok_ip_test, sent_ip_test, pos_ip_test, masks_test = preprocess(data_test)
     labels_test = np.array(labels_test)
-    os.mkdir("test")
-    np.save("test/test-tok.npy", tok_ip_test)
-    np.save("test/test-sent.npy", sent_ip_test)
-    np.save("test/test-pos.npy", pos_ip_test)
-    np.save("test/test-masks.npy", masks_test)
-    np.save("test/test-labels.npy", labels_test)
+    os.mkdir("test_claim")
+    np.save("test_claim/test-tok.npy", tok_ip_test)
+    np.save("test_claim/test-sent.npy", sent_ip_test)
+    np.save("test_claim/test-pos.npy", pos_ip_test)
+    np.save("test_claim/test-masks.npy", masks_test)
+    np.save("test_claim/test-labels.npy", labels_test)
 else:
-    data_test, labels_test, ids_test, predicted_evidence_test = load_data("test-data.jsonl")
-    tok_ip_test = np.load("test/test-tok.npy")
-    sent_ip_test = np.load("test/test-sent.npy")
-    pos_ip_test = np.load("test/test-pos.npy")
-    masks_test = np.load("test/test-masks.npy")
-    labels_test = np.load("test/test-labels.npy")
+    data_test, labels_test, ids_test, predicted_evidence_test = load_data("test_sent_results.txt")
+    tok_ip_test = np.load("test_claim/test-tok.npy")
+    sent_ip_test = np.load("test_claim/test-sent.npy")
+    pos_ip_test = np.load("test_claim/test-pos.npy")
+    masks_test = np.load("test_claim/test-masks.npy")
+    labels_test = np.load("test_claim/test-labels.npy")
 
 def train(model, loader, criterion, optimizer):
     model.train()
     loss_epoch = 0
-    for tok_ip, sent_ip, pos_ip, masks, y in tqdm.tqdm_notebook(loader):
+    idx = 0
+    for tok_ip, sent_ip, pos_ip, masks, y in tqdm.tqdm(loader):
         optimizer.zero_grad()
         tok_ip = tok_ip.type(torch.LongTensor).to(device)
         sent_ip = sent_ip.type(torch.LongTensor).to(device)
@@ -166,19 +167,23 @@ def train(model, loader, criterion, optimizer):
         loss_epoch += loss.item()
         loss.backward()
         optimizer.step()
-    print ("Loss:", loss_epoch/len(loader))
+        idx += 1
+        if idx % 500 == 0:
+            print("Loss:", loss_epoch/idx)
+            torch.save(model.state_dict(), model_name)
+
+    print("Loss:", loss_epoch/len(loader))
     
     return loss_epoch/len(loader)
 
 def test(model, loader):
     model.eval()
     outputs = []
-    for tok_ip, sent_ip, pos_ip, masks, y in tqdm.tqdm_notebook(loader):
-        optimizer.zero_grad()
-        tok_ip = tok_ip.to(device)
-        sent_ip = sent_ip.to(device)
-        pos_ip = pos_ip.to(device)
-        masks = masks.to(device)
+    for tok_ip, sent_ip, pos_ip, masks, y in tqdm.tqdm(loader):
+        tok_ip = tok_ip.type(torch.LongTensor).to(device)
+        sent_ip = sent_ip.type(torch.LongTensor).to(device)
+        pos_ip = pos_ip.type(torch.LongTensor).to(device)
+        masks = masks.type(torch.FloatTensor).to(device)
         y = y.to(device)
         output = model(tok_ip, sent_ip, pos_ip, masks)
         outputs.extend(output.detach().cpu().argmax(dim=1).numpy())
@@ -187,7 +192,7 @@ def test(model, loader):
 
 # Merge predictions for each claim
 def merge_preds(preds, ids, predicted_evidence):
-    merged_preds = []
+    preds_dict = {}
     merged_evidence = []
     cur_id = ids[0]
     # Indices represent NEI, Supports, Refutes
@@ -201,42 +206,45 @@ def merge_preds(preds, ids, predicted_evidence):
         else:
             # Label Assignment according to rules mentioned in paper
             if stats[1] > 0:
-                merged_preds.append("SUPPORTS")
+                preds_dict[cur_id] = ["SUPPORTS", evidence_line]
             elif stats[2] > 0 and stats[1] == 0:
-                merged_preds.append("REFUTES")
+                preds_dict[cur_id] = ["REFUTES", evidence_line]
             elif stats[1] == 0 and stats[2] == 0:
-                merged_preds.append("NOT ENOUGH INFO")
+                preds_dict[cur_id] = ["NOT ENOUGH INFO", evidence_line]
             stats = [0, 0, 0]
             cur_id = ids[i]
             stats[preds[i]] += 1
-            merged_evidence.append(evidence_line)
             evidence_line = []
+            evidence_line.append(predicted_evidence[i])
     if stats[1] > 0:
-        merged_preds.append("SUPPORTS")
+        preds_dict[cur_id] = ["SUPPORTS", evidence_line]
     elif stats[2] > 0 and stats[1] == 0:
-        merged_preds.append("REFUTES")
+        preds_dict[cur_id] = ["REFUTES", evidence_line]
     elif stats[1] == 0 and stats[2] == 0:
-        merged_preds.append("NOT ENOUGH INFO")
-    merged_evidence.append(evidence_line)
-    return merged_preds, merged_evidence
+        preds_dict[cur_id] = ["NOT ENOUGH INFO", evidence_line]
+    return preds_dict
 
 # Make final json with id, label, predicted_label, evidence and predicted_evidence
-def format_output(in_path, out_path, preds, evidence, dev=True):
+def format_output(in_path, out_path, preds_dict, dev=True):
     outputs = []
+    i = 0
     with open(in_path, 'r', encoding='utf8') as f:
-        i = 0
         for line in f.readlines():
             output_obj = {}
             input_obj = json.loads(line.strip())
             output_obj['id'] = input_obj['id']
             if dev:
                 output_obj['label'] = input_obj['label']
-            output_obj['predicted_label'] = preds[i]
-            output_obj['predicted_evidence'] = evidence[i]
+            if input_obj['id'] in preds_dict:
+                output_obj['predicted_label'] = preds_dict[input_obj['id']][0]
+                output_obj['predicted_evidence'] = preds_dict[input_obj['id']][1]
+            else:
+                output_obj['predicted_label'] = "NOT ENOUGH INFO"
+                output_obj['predicted_evidence'] = [['null',0]]
             if dev:
                 output_obj['evidence'] = input_obj['evidence']
-            i += 1
             outputs.append(output_obj)
+            i += 1
 
     # Calculate Fever score for dev set
     if dev:
@@ -267,21 +275,24 @@ config = Config()
 model = ClaimVerification(config)
 load_model(model, weights_path)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+optimizer = optim.Adam(model.parameters(), lr=2e-5)
 model.to(device)
 
 # Train
-for i in range(1):
+for i in range(2):
     x = train(model, dev_loader, criterion, optimizer)
     torch.save(model.state_dict(), model_name)
 
-# Dev Set
+# print('Loading model')
+# model.load_state_dict(torch.load(model_name))
+# model.to(device)
+
+#Dev Set
 preds = test(model, dev_loader)
-merged_preds, merged_evidence = merge_preds(preds, ids_dev, predicted_evidence_dev)
-format_output('dev.jsonl', 'dev_results.txt', merged_preds, merged_evidence)
+preds_dict = merge_preds(preds, ids_dev, predicted_evidence_dev)
+format_output('dev.jsonl', 'dev_results.txt', preds_dict)
 
 # Test Set
 preds = test(model, test_loader)
-merged_preds, merged_evidence = merge_preds(preds, ids_dev, predicted_evidence_dev)
-format_output('test.jsonl', 'test_results.txt', merged
-_preds, merged_evidence)
+preds_dict = merge_preds(preds, ids_dev, predicted_evidence_dev, dev=False)
+format_output('test.jsonl', 'test_results.txt', preds_dict)
