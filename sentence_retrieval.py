@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import numpy as np
 import os, tqdm, time, json
 import torch
@@ -11,31 +5,15 @@ import matplotlib.pyplot as plt
 from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader, Dataset 
-from multiprocessing.dummy import Pool as ThreadPool
-
-
-# In[2]:
-
-
 from tokenization import FullTokenizer
 from Bert import *
 
 
-# In[3]:
-
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-# In[4]:
-
 
 weights_path = "uncased_L-12_H-768_A-12/bert_model.ckpt"
 vocab_file = "uncased_L-12_H-768_A-12/vocab.txt"
 model_name = "SentenceRetrieval"
-
-
-# In[5]:
 
 
 class SentenceDataset(Dataset):
@@ -52,16 +30,11 @@ class SentenceDataset(Dataset):
     def __getitem__(self, index):
         return self.tok_ip[index], self.sent_ip[index], self.pos_ip[index], self.masks[index], self.y[index]
 
-
-# In[6]:
-
-
 class SentenceRetrieval(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.enbedding_layer = EmbeddingLayer(config)
         self.encoders = nn.ModuleList([EncoderLayer(config) for i in range(config.num_encoders)])
-        
         self.output = nn.Linear(config.emb_dim, 2)
         
     def forward(self, token_ip, sent_ip, pos_ip, mask=None):
@@ -72,27 +45,23 @@ class SentenceRetrieval(nn.Module):
         
         return out
 
-
-# In[7]:
-
-
 def load_data(fname):
     f = open(fname, encoding='utf8')
     data = []
+    claim_ids = []
     labels = []
+    predicted_evidence = []
     for line in f:
         line = json.loads(line)
-        sentence = ["[CLS]" + line['claim'] + "[SEP]", line['sentence'] + "[SEP]"]
+        sentence = ["[CLS]" + line['claim'] + "[SEP]", line['doc'] + " " + line['sentence'] + "[SEP]"]
         label = line['is_evidence']
         data.append(sentence)
         labels.append(label)
+        claim_ids.append(line['id'])
+        predicted_evidence.append([line['doc'], line['sid'], line['claim'], line['sentence'], line['label']])
     f.close()
     
-    return data, labels
-
-
-# In[8]:
-
+    return data, labels, claim_ids, predicted_evidence
 
 def preprocess(data):
     tokenizer = FullTokenizer(vocab_file)
@@ -118,42 +87,31 @@ def preprocess(data):
         tok_ip[pos] = tok
         pos_ip[pos] = pos_val
         masks[pos] = mask
-        sent_ip[pos] = sent
         
     masks = masks[:, None, None, :]
     return tok_ip, sent_ip, pos_ip, masks
 
-
-# In[9]:
-
+data_train, labels_train, ids_train, predicted_evidence_train = load_data("train-data.jsonl")
 
 if not os.path.exists("train/train-tok.npy"):
-    data, labels = load_data("train-data.jsonl")
-    
-#     pool = ThreadPool(16)
-#     tok_ip, sent_ip, pos_ip, masks = list(tqdm.tqdm(pool.imap(preprocess, data), total=len(data))
-    
-    tok_ip, sent_ip, pos_ip, masks = preprocess(data)
-    labels = np.array(labels)
+    tok_ip, sent_ip, pos_ip, masks = preprocess(data_train)
+    labels = np.array(labels_train)
     os.mkdir("train")
     np.save("train/train-tok.npy", tok_ip)
     np.save("train/train-sent.npy", sent_ip)
-    np.save("train/train-pos.npy", pos_ip)
+    np.save("train/train-sent.npy", pos_ip)
     np.save("train/train-masks.npy", masks)
     np.save("train/train-labels.npy", labels)
 else:
     tok_ip = np.load("train/train-tok.npy")
     sent_ip = np.load("train/train-sent.npy")
-    pos_ip = np.load("train/train-pos.npy")
+    pos_ip = np.load("train/train-sent.npy")
     masks = np.load("train/train-masks.npy")
     labels = np.load("train/train-labels.npy")   
 
-
-# In[10]:
-
+data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("dev-data.jsonl")
 
 if not os.path.exists("dev/dev-tok.npy"):
-    data_dev, labels_dev = load_data("dev-data.jsonl")
     tok_ip_dev, sent_ip_dev, pos_ip_dev, masks_dev = preprocess(data_dev)
     labels_dev = np.array(labels_dev)
     os.mkdir("dev")
@@ -169,12 +127,9 @@ else:
     masks_dev = np.load("dev/dev-masks.npy")
     labels_dev = np.load("dev/dev-labels.npy")
 
-
-# In[ ]:
-
+data_test, labels_test, ids_test, predicted_evidence_test = load_data("test-data.jsonl")
 
 if not os.path.exists("test/test-tok.npy"):
-    data_test, labels_test = load_data("test-data.jsonl")
     tok_ip_test, sent_ip_test, pos_ip_test, masks_test = preprocess(data_test)
     labels_test = np.array(labels_test)
     os.mkdir("test")
@@ -189,10 +144,6 @@ else:
     pos_ip_test = np.load("test/test-pos.npy")
     masks_test = np.load("test/test-masks.npy")
     labels_test = np.load("test/test-labels.npy")
-
-
-# In[ ]:
-
 
 def train(model, loader, criterion, optimizer):
     model.train()
@@ -213,49 +164,101 @@ def train(model, loader, criterion, optimizer):
     
     return loss_epoch/len(loader)
 
+def test(model, loader):
+    model.eval()
+    outputs = []
+    scores = []
+    for tok_ip, sent_ip, pos_ip, masks, y in tqdm.tqdm_notebook(loader):
+        optimizer.zero_grad()
+        tok_ip = tok_ip.to(device)
+        sent_ip = sent_ip.to(device)
+        pos_ip = pos_ip.to(device)
+        masks = masks.to(device)
+        y = y.to(device)
+        output = model(tok_ip, sent_ip, pos_ip, masks)
+        
+        scores.extend(output.detach().cpu().numpy()[:, 1])
+        outputs.extend(output.detach().cpu().argmax(dim=1).numpy())
 
-# In[ ]:
+    return np.asarray(outputs), np.asarray(scores)
+
+# Get top 5 evidences for each claim
+def get_top_5(preds, scores, ids, predicted_evidence):
+    
+    evidence_map = {}
+    top_5_map = {}
+    
+    for i in range(len(ids)):
+        if preds[i] != 1:
+            continue
+        if ids[i] not in evidence_map.keys():
+            evidence_map[ids[i]] = []
+        evidence_map[ids[i]].append((scores[i], predicted_evidence))
+        
+    for id, sents in evidence_map.items():
+        top_5_sents = sorted(sents, key=lambda x: x[0], reverse=True)[:5]
+        top_5_map[id] = top_5_sents
+    
+    return top_5_map
+
+# Make final json with id, label, predicted_label, evidence and predicted_evidence
+def format_output(out_path, top_5_map):
+    
+    outputs = []
+    for id, sents in top_5_map.items():
+        
+        for sent, meta in sents:
+            output_obj = {}
+            output_obj['id'] = id
+            output_obj['claim'] =  meta[2]
+            output_obj['label'] = meta[4]
+            output_obj['doc'] = meta[0]
+            output_obj['sid'] = meta[1]
+            output_obj['sentence'] = meta[3]
+            
+            outputs.append(output_obj)
+
+    # Write final predictions to file
+    with open(out_path, 'w', encoding='utf8') as f:
+        for line in outputs:
+            json.dump(line, f)
+            f.write("\n")
 
 
 train_dataset = SentenceDataset(tok_ip, sent_ip, pos_ip, masks, labels)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=16, num_workers=4)
 
-
-# In[ ]:
-
-
 dev_dataset = SentenceDataset(tok_ip_dev, sent_ip_dev, pos_ip_dev, masks_dev, labels_dev)
 dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=16, num_workers=4)
-
-
-# In[ ]:
 
 
 test_dataset = SentenceDataset(tok_ip_test, sent_ip_test, pos_ip_test, masks_test, labels_test)
 test_loader = DataLoader(test_dataset, shuffle=False, batch_size=16, num_workers=4)
 
-
-# In[ ]:
-
-
 config = Config()
 model = SentenceRetrieval(config)
 load_model(model, weights_path)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+optimizer = optim.Adam(model.parameters(), lr=3e-5)
 model.to(device)
-
-
-# In[ ]:
 
 
 for i in range(1):
     x = train(model, dev_loader, criterion, optimizer)
     torch.save(model.state_dict(), model_name)
 
+# Train Set
+preds, scores = test(model, train_loader)
+top_5_map = get_top_5(preds, scores, ids_train, predicted_evidence_train)
+format_output('train_results.txt',top_5_map)
 
-# In[ ]:
+# Dev Set
+preds, scores = test(model, dev_loader)
+top_5_map = get_top_5(preds, ids_dev, predicted_evidence_dev)
+format_output('dev_results.txt', top_5_map)
 
-
-
+# Test Set
+preds, scores = test(model, test_loader)
+top_5_map = get_top_5(preds, ids_test, predicted_evidence_test)
+format_output('test_results.txt', top_5_map)
 
