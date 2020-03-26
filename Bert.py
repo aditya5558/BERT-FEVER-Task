@@ -153,12 +153,15 @@ class EncoderLayer(nn.Module):
         super().__init__()
         
         self.self_attention = MultiHeadSelfAttentionLayer(config)
+        self.layer_norm = nn.LayerNorm(normalized_shape=config.emb_dim, eps=config.eps)
+        self.enc_drop = nn.Dropout(p = config.attn_drop_rate)
         
         self.feed_forward = FeedForwardLayer(config)
         
     def forward(self, embeddings, mask=None):
         
         out = self.self_attention(embeddings, mask)
+        out = self.layer_norm(embeddings + self.enc_drop(out))
         out = self.feed_forward(out)
         
         return out
@@ -244,8 +247,8 @@ def load_model(model, checkpoint_file):
             b.feed_forward.fc1.bias:        p+"intermediate/dense/bias",
             b.feed_forward.fc2.weight:      p+"output/dense/kernel",
             b.feed_forward.fc2.bias:        p+"output/dense/bias",
-            b.feed_forward.layer_norm.weight:          p+"attention/output/LayerNorm/gamma",
-            b.feed_forward.layer_norm.bias:           p+"attention/output/LayerNorm/beta",
+            b.layer_norm.weight:          p+"attention/output/LayerNorm/gamma",
+            b.layer_norm.bias:           p+"attention/output/LayerNorm/beta",
             b.feed_forward.layer_norm.weight:          p+"output/LayerNorm/gamma",
             b.feed_forward.layer_norm.bias:           p+"output/LayerNorm/beta",
         })
