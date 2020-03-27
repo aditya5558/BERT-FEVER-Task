@@ -173,13 +173,12 @@ def test(model, loader):
     model.eval()
     outputs = []
     scores = []
-    for tok_ip, sent_ip, pos_ip, masks, y in tqdm.tqdm(loader):
+    for tok_ip, sent_ip, pos_ip, masks, _ in tqdm.tqdm(loader):
         optimizer.zero_grad()
         tok_ip = tok_ip.type(torch.LongTensor).to(device)
         sent_ip = sent_ip.type(torch.LongTensor).to(device)
         pos_ip = pos_ip.type(torch.LongTensor).to(device)
         masks = masks.type(torch.FloatTensor).to(device)
-        y = y.to(device)
         output = model(tok_ip, sent_ip, pos_ip, masks)
         
         scores.extend(output.detach().cpu().numpy()[:, 1])

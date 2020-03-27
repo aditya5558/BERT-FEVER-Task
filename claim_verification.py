@@ -108,11 +108,11 @@ if not os.path.exists("train_claim/train-tok.npy"):
     np.save("train_claim/train-labels.npy", labels)
 else:
     data, labels, ids, predicted_evidence = load_data("train_sent_results.txt")
-    tok_ip = np.load("train/train-tok.npy")
-    sent_ip = np.load("train/train-sent.npy")
-    pos_ip = np.load("train/train-pos.npy")
-    masks = np.load("train/train-masks.npy")
-    labels = np.load("train/train-labels.npy")
+    tok_ip = np.load("train_claim/train-tok.npy")
+    sent_ip = np.load("train_claim/train-sent.npy")
+    pos_ip = np.load("train_claim/train-pos.npy")
+    masks = np.load("train_claim/train-masks.npy")
+    labels = np.load("train_claim/train-labels.npy")
 
 if not os.path.exists("dev_claim/dev-tok.npy"):
     data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("dev_sent_results.txt")
@@ -179,12 +179,11 @@ def train(model, loader, criterion, optimizer):
 def test(model, loader):
     model.eval()
     outputs = []
-    for tok_ip, sent_ip, pos_ip, masks, y in tqdm.tqdm(loader):
+    for tok_ip, sent_ip, pos_ip, masks, _ in tqdm.tqdm(loader):
         tok_ip = tok_ip.type(torch.LongTensor).to(device)
         sent_ip = sent_ip.type(torch.LongTensor).to(device)
         pos_ip = pos_ip.type(torch.LongTensor).to(device)
         masks = masks.type(torch.FloatTensor).to(device)
-        y = y.to(device)
         output = model(tok_ip, sent_ip, pos_ip, masks)
         outputs.extend(output.detach().cpu().argmax(dim=1).numpy())
 
