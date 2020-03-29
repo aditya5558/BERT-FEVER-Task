@@ -34,7 +34,7 @@ class ClaimVerification(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.enbedding_layer = EmbeddingLayer(config)
-        self.encoders = nn.ModuleList([nn.TransformerEncoderLayer(d_model=config.emb_dim, nhead=config.num_heads, dim_feedforward=config.hidden_dim) for i in range(config.num_encoders)])
+        self.encoders = nn.ModuleList([nn.TransformerEncoderLayer(d_model=config.emb_dim, nhead=config.num_heads, dim_feedforward=config.hidden_dim, activation="gelu") for i in range(config.num_encoders)])
         self.output = nn.Linear(config.emb_dim, 3)
         
     def forward(self, token_ip, sent_ip, pos_ip, mask=None):
