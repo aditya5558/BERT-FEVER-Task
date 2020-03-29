@@ -217,6 +217,25 @@ def load_param(checkpoint_file, conversion_table):
         # assign pytorch tensor from tensorflow param
         pyt_param.data = torch.from_numpy(tf_param)
 
+def load_param_num(checkpoint_file, conversion_table, num=3):
+    """
+    Load parameters in pytorch model from checkpoint file according to conversion_table
+    checkpoint_file : pretrained checkpoint model file in tensorflow
+    conversion_table : { pytorch tensor in a model : checkpoint variable name }
+    """
+    for pyt_param, tf_param_list in conversion_table.items():
+        tf_params = []
+        for tf_param_name in tf_param_list:
+            tf_params.append(tf.train.load_variable(checkpoint_file, tf_param_name))
+        tf_param = np.hstack(tf_params)
+        # for weight(kernel), we should do transpose
+        if tf_param_name.endswith('kernel'):
+            tf_param = np.transpose(tf_param)
+
+        assert pyt_param.size() == tf_param.shape,             'Dim Mismatch: %s vs %s ; %s' %                 (tuple(pyt_param.size()), tf_param.shape, tf_param_name)
+        
+        # assign pytorch tensor from tensorflow param
+        pyt_param.data = torch.from_numpy(tf_param)
 
 def load_model(model, checkpoint_file):
     """ Load the pytorch model from checkpoint file """
