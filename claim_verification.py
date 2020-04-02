@@ -58,7 +58,7 @@ def load_data(fname):
     predicted_evidence = []
     for line in f:
         line = json.loads(line)
-        sentence = ["[CLS]" + line['claim'] + "[SEP]", line['sentence'] + "[SEP]"]
+        sentence = ["[CLS]" + line['claim'] + "[SEP]", line['doc'] + " " + line['sentence'] + "[SEP]"]
         label = label_dict[line['label']]
         data.append(sentence)
         labels.append(label)
@@ -96,6 +96,8 @@ def preprocess(data):
     masks = masks[:, None, None, :]
     return tok_ip, sent_ip, pos_ip, masks
 
+
+# Tokenize
 if not os.path.exists("train_claim/train-tok.npy"):
     data, labels, ids, predicted_evidence = load_data("train_sent_results.txt")
     tok_ip, sent_ip, pos_ip, masks = preprocess(data)
@@ -125,7 +127,6 @@ if not os.path.exists("dev_claim/dev-tok.npy"):
     np.save("dev_claim/dev-masks.npy", masks_dev)
     np.save("dev_claim/dev-labels.npy", labels_dev)
 else:
-    print('Loading npy files')
     data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("dev_sent_results.txt")
     tok_ip_dev = np.load("dev_claim/dev-tok.npy")
     sent_ip_dev = np.load("dev_claim/dev-sent.npy")
@@ -179,13 +180,14 @@ def train(model, loader, criterion, optimizer):
 def test(model, loader):
     model.eval()
     outputs = []
-    for tok_ip, sent_ip, pos_ip, masks, _ in tqdm.tqdm(loader):
-        tok_ip = tok_ip.type(torch.LongTensor).to(device)
-        sent_ip = sent_ip.type(torch.LongTensor).to(device)
-        pos_ip = pos_ip.type(torch.LongTensor).to(device)
-        masks = masks.type(torch.FloatTensor).to(device)
-        output = model(tok_ip, sent_ip, pos_ip, masks)
-        outputs.extend(output.detach().cpu().argmax(dim=1).numpy())
+    with torch.no_grad():
+        for tok_ip, sent_ip, pos_ip, masks, _ in tqdm.tqdm(loader):
+            tok_ip = tok_ip.type(torch.LongTensor).to(device)
+            sent_ip = sent_ip.type(torch.LongTensor).to(device)
+            pos_ip = pos_ip.type(torch.LongTensor).to(device)
+            masks = masks.type(torch.FloatTensor).to(device)
+            output = model(tok_ip, sent_ip, pos_ip, masks)
+            outputs.extend(output.detach().cpu().argmax(dim=1).numpy())
 
     return np.asarray(outputs)
 
@@ -261,14 +263,15 @@ def format_output(in_path, out_path, preds_dict, dev=True):
             json.dump(line, f)
             f.write("\n")
 
+# Dataloaders
 train_dataset = SentenceDataset(tok_ip, sent_ip, pos_ip, masks, labels)
-train_loader = DataLoader(train_dataset, shuffle=True, batch_size=32, num_workers=8)
+train_loader = DataLoader(train_dataset, shuffle=True, batch_size=64, num_workers=8)
 
 dev_dataset = SentenceDataset(tok_ip_dev, sent_ip_dev, pos_ip_dev, masks_dev, labels_dev)
-dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=32, num_workers=8)
+dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=256, num_workers=8)
 
 test_dataset = SentenceDataset(tok_ip_test, sent_ip_test, pos_ip_test, masks_test, labels_test)
-test_loader = DataLoader(test_dataset, shuffle=False, batch_size=32, num_workers=8)
+test_loader = DataLoader(test_dataset, shuffle=False, batch_size=256, num_workers=8)
 
 config = Config()
 model = ClaimVerification(config)
@@ -279,19 +282,19 @@ model.to(device)
 
 # Train
 for i in range(2):
-    x = train(model, dev_loader, criterion, optimizer)
+    x = train(model, train_loader, criterion, optimizer)
     torch.save(model.state_dict(), model_name)
 
 # print('Loading model')
 # model.load_state_dict(torch.load(model_name))
 # model.to(device)
 
-#Dev Set
+# Dev Set
 preds = test(model, dev_loader)
 preds_dict = merge_preds(preds, ids_dev, predicted_evidence_dev)
 format_output('dev.jsonl', 'dev_results.txt', preds_dict)
 
 # Test Set
 preds = test(model, test_loader)
-preds_dict = merge_preds(preds, ids_dev, predicted_evidence_dev, dev=False)
-format_output('test.jsonl', 'test_results.txt', preds_dict)
+preds_dict = merge_preds(preds, ids_test, predicted_evidence_test)
+format_output('test.jsonl', 'test_results.txt', preds_dict, dev=False)

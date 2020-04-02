@@ -91,8 +91,9 @@ def preprocess(data):
     masks = masks[:, None, None, :]
     return tok_ip, sent_ip, pos_ip, masks
 
-data_train, labels_train, ids_train, predicted_evidence_train = load_data("NN-NLP-Project-Data/train-data.jsonl")
+# Tokenize
 
+data_train, labels_train, ids_train, predicted_evidence_train = load_data("NN-NLP-Project-Data/train-data.jsonl")
 if not os.path.exists("train/train-tok.npy"):
     tok_ip, sent_ip, pos_ip, masks = preprocess(data_train)
     labels = np.array(labels_train)
@@ -110,7 +111,6 @@ else:
     labels = np.load("train/train-labels.npy")   
 
 data_dev, labels_dev, ids_dev, predicted_evidence_dev = load_data("NN-NLP-Project-Data/dev-data.jsonl")
-
 if not os.path.exists("dev/dev-tok.npy"):
     tok_ip_dev, sent_ip_dev, pos_ip_dev, masks_dev = preprocess(data_dev)
     labels_dev = np.array(labels_dev)
@@ -128,7 +128,6 @@ else:
     labels_dev = np.load("dev/dev-labels.npy")
 
 data_test, labels_test, ids_test, predicted_evidence_test = load_data("NN-NLP-Project-Data/test-data.jsonl")
-
 if not os.path.exists("test/test-tok.npy"):
     tok_ip_test, sent_ip_test, pos_ip_test, masks_test = preprocess(data_test)
     labels_test = np.array(labels_test)
@@ -173,16 +172,17 @@ def test(model, loader):
     model.eval()
     outputs = []
     scores = []
-    for tok_ip, sent_ip, pos_ip, masks, _ in tqdm.tqdm(loader):
-        optimizer.zero_grad()
-        tok_ip = tok_ip.type(torch.LongTensor).to(device)
-        sent_ip = sent_ip.type(torch.LongTensor).to(device)
-        pos_ip = pos_ip.type(torch.LongTensor).to(device)
-        masks = masks.type(torch.FloatTensor).to(device)
-        output = model(tok_ip, sent_ip, pos_ip, masks)
-        
-        scores.extend(output.detach().cpu().numpy()[:, 1])
-        outputs.extend(output.detach().cpu().argmax(dim=1).numpy())
+    with torch.no_grad():
+        for tok_ip, sent_ip, pos_ip, masks, _ in tqdm.tqdm(loader):
+            optimizer.zero_grad()
+            tok_ip = tok_ip.type(torch.LongTensor).to(device)
+            sent_ip = sent_ip.type(torch.LongTensor).to(device)
+            pos_ip = pos_ip.type(torch.LongTensor).to(device)
+            masks = masks.type(torch.FloatTensor).to(device)
+            output = model(tok_ip, sent_ip, pos_ip, masks)
+            
+            scores.extend(output.detach().cpu().numpy()[:, 1])
+            outputs.extend(output.detach().cpu().argmax(dim=1).numpy())
        
     return np.asarray(outputs), np.asarray(scores)
 
@@ -193,9 +193,6 @@ def get_top_5(preds, scores, ids, predicted_evidence):
     top_5_map = {}
     
     for i in range(len(ids)):
-        
-        # if preds[i] != 1:
-        #     continue
         if ids[i] not in evidence_map.keys():
             evidence_map[ids[i]] = []
         evidence_map[ids[i]].append((scores[i], predicted_evidence[i]))
@@ -229,16 +226,15 @@ def format_output(out_path, top_5_map):
             json.dump(line, f)
             f.write("\n")
 
-
+# Dataloaders
 train_dataset = SentenceDataset(tok_ip, sent_ip, pos_ip, masks, labels)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=64, num_workers=8)
 
 dev_dataset = SentenceDataset(tok_ip_dev, sent_ip_dev, pos_ip_dev, masks_dev, labels_dev)
-dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=32, num_workers=8)
-
+dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=256, num_workers=8)
 
 test_dataset = SentenceDataset(tok_ip_test, sent_ip_test, pos_ip_test, masks_test, labels_test)
-test_loader = DataLoader(test_dataset, shuffle=False, batch_size=32, num_workers=8)
+test_loader = DataLoader(test_dataset, shuffle=False, batch_size=256, num_workers=8)
 
 config = Config()
 model = SentenceRetrieval(config)
@@ -251,7 +247,7 @@ optimizer = optim.Adam(model.parameters(), lr=2e-5)
 model.to(device)
 
 for i in range(1):
-    x = train(model, dev_loader, criterion, optimizer)
+    x = train(model, train_loader, criterion, optimizer)
     torch.save(model.state_dict(), model_name)
 
 # Train Set
@@ -266,6 +262,6 @@ format_output('dev_sent_results.txt', top_5_map)
 
 # Test Set
 preds, scores = test(model, test_loader)
-top_5_map = get_top_5(preds, ids_test, predicted_evidence_test)
+top_5_map = get_top_5(preds, scores, ids_test, predicted_evidence_test)
 format_output('test_sent_results.txt', top_5_map)
 
