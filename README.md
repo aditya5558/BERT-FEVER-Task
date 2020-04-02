@@ -31,3 +31,7 @@ To replicate results, run code in the following order:
 
 ### Report
 All other description of the project along with the architecture is present in the report.pdf
+
+### Reference
+Implementation of technique proposed by:  
+[BERT for Evidence Retrieval and Claim Verification](https://arxiv.org/pdf/1910.02655.pdf) by Soleimani et al.
