@@ -1,4 +1,4 @@
-from transformers import XLNetTokenizer, XLNetForSequenceClassification, AdamW
+from transformers import RobertaTokenizer, RobertaForSequenceClassification, AdamW
 import torch, tqdm, json
 import numpy as np
 from torch.utils.data import DataLoader, Dataset, TensorDataset 
@@ -7,8 +7,8 @@ from scorer import fever_score
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 NUM_EPOCHS = 2
 
-tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
-model = XLNetForSequenceClassification.from_pretrained('xlnet-base-cased', num_labels=3)
+tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+model = RobertaForSequenceClassification.from_pretrained('roberta-base', num_labels=3)
 model.to(device)
 
 model_name = "ClaimVerification.pt"
@@ -23,17 +23,16 @@ def process_data(fname, train=True):
     label_dict['SUPPORTS'] = 1
     label_dict['REFUTES'] = 2
     claim_ids = []
-
-    predicted_evidence = []
     f = open(fname, encoding='utf8')
     f.readline()
     maxi = 0
+    preds_dict = {}
     for line in f:
         line = json.loads(line)
         claim_ids.append(line['id'])
-        predicted_evidence.append([line['doc'], line['sid']])
+        preds_dict[line["id"]] = [line["label"], line["predicted_evidence"]]
 
-        input_ids = (tokenizer.encode(line['claim']+" [SEP] "+line['doc'] + " " + line["sentence"], add_special_tokens=True))[:128]
+        input_ids = (tokenizer.encode(line['claim']+" [SEP] "+line["sentence"], add_special_tokens=True))[:256]
         X.append(input_ids)
         if len(input_ids) > maxi:
             maxi = len(input_ids)
@@ -44,11 +43,12 @@ def process_data(fname, train=True):
         mask.append([1]*len(val) + [0]*(maxi-len(val)))
         val += [0]*(maxi-len(val)) #np.pad(val, (0, maxi-len(val)), 'constant')
         
-    return torch.LongTensor(X), torch.LongTensor(y), torch.LongTensor(mask), claim_ids, predicted_evidence
+    return torch.LongTensor(X), torch.LongTensor(y), torch.LongTensor(mask), claim_ids, preds_dict
 
-X_train, y_train, mask_train, ids_train, predicted_evidence_train = process_data("NN-NLP-Project-Data/train_sent_results.txt")
-X_dev, y_dev, mask_dev, ids_dev, predicted_evidence_dev = process_data("NN-NLP-Project-Data/dev_sent_results.txt")
-X_test, y_test, mask_test, ids_test, predicted_evidence_test = process_data("NN-NLP-Project-Data/test_sent_results.txt")
+
+X_train, y_train, mask_train, _, preds_dict_train = process_data("train_sent_multi.txt")
+X_dev, y_dev, mask_dev, ids_dev, preds_dict_dev = process_data("dev_sent_multi.txt")
+X_test, y_test, mask_test, ids_test, preds_dict_test = process_data("test_sent_multi.txt")
 
 train_dataset = TensorDataset(X_train, y_train, mask_train)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=32, num_workers=8)
@@ -97,37 +97,13 @@ def test(model, loader):
     return np.asarray(outputs)
 
 # Merge predictions for each claim
-def merge_preds(preds, ids, predicted_evidence):
-    preds_dict = {}
-    merged_evidence = []
-    cur_id = ids[0]
-    # Indices represent NEI, Supports, Refutes
-    stats = [0, 0, 0]
-    evidence_line = []
-    stats[preds[0]] += 1
-    for i in range(1,len(ids)):
-        if ids[i] == cur_id:
-            stats[preds[i]] += 1
-            evidence_line.append(predicted_evidence[i])
-        else:
-            # Label Assignment according to rules mentioned in paper
-            if stats[1] > 0:
-                preds_dict[cur_id] = ["SUPPORTS", evidence_line]
-            elif stats[2] > 0 and stats[1] == 0:
-                preds_dict[cur_id] = ["REFUTES", evidence_line]
-            elif stats[1] == 0 and stats[2] == 0:
-                preds_dict[cur_id] = ["NOT ENOUGH INFO", evidence_line]
-            stats = [0, 0, 0]
-            cur_id = ids[i]
-            stats[preds[i]] += 1
-            evidence_line = []
-            evidence_line.append(predicted_evidence[i])
-    if stats[1] > 0:
-        preds_dict[cur_id] = ["SUPPORTS", evidence_line]
-    elif stats[2] > 0 and stats[1] == 0:
-        preds_dict[cur_id] = ["REFUTES", evidence_line]
-    elif stats[1] == 0 and stats[2] == 0:
-        preds_dict[cur_id] = ["NOT ENOUGH INFO", evidence_line]
+def merge_preds(preds, ids, preds_dict):
+    label_dict = {}
+    label_dict[0] = 'NOT ENOUGH INFO'
+    label_dict[1] = 'SUPPORTS'
+    label_dict[2] = 'REFUTES'
+    for i in range(len(ids)):
+        preds_dict[ids[i]] = [label_dict[preds[i]], preds_dict[ids[i]][1]]
     return preds_dict
 
 # Make final json with id, label, predicted_label, evidence and predicted_evidence
@@ -172,13 +148,18 @@ for i in range(NUM_EPOCHS):
     x = train(model, train_loader, optimizer)
     torch.save(model.state_dict(), model_name)
 
+# print('Loading model')
+# model.load_state_dict(torch.load(model_name))
+# model.to(device)
+
 # Dev Set
 preds = test(model, dev_loader)
-preds_dict = merge_preds(preds, ids_dev, predicted_evidence_dev)
+preds_dict = merge_preds(preds, ids_dev, preds_dict_dev)
 format_output('dev.jsonl', 'dev_results.txt', preds_dict)
+
 
 # Test Set
 preds = test(model, test_loader)
-preds_dict = merge_preds(preds, ids_test, predicted_evidence_test)
+preds_dict = merge_preds(preds, ids_test, preds_dict_test)
 format_output('test.jsonl', 'test_results.txt', preds_dict, dev=False)
 

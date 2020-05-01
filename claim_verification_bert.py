@@ -1,4 +1,4 @@
-from transformers import XLNetTokenizer, XLNetForSequenceClassification, AdamW
+from transformers import BertTokenizer, BertForSequenceClassification, AdamW
 import torch, tqdm, json
 import numpy as np
 from torch.utils.data import DataLoader, Dataset, TensorDataset 
@@ -7,8 +7,8 @@ from scorer import fever_score
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 NUM_EPOCHS = 2
 
-tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
-model = XLNetForSequenceClassification.from_pretrained('xlnet-base-cased', num_labels=3)
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=3)
 model.to(device)
 
 model_name = "ClaimVerification.pt"
@@ -48,7 +48,7 @@ def process_data(fname, train=True):
 
 X_train, y_train, mask_train, ids_train, predicted_evidence_train = process_data("NN-NLP-Project-Data/train_sent_results.txt")
 X_dev, y_dev, mask_dev, ids_dev, predicted_evidence_dev = process_data("NN-NLP-Project-Data/dev_sent_results.txt")
-X_test, y_test, mask_test, ids_test, predicted_evidence_test = process_data("NN-NLP-Project-Data/test_sent_results.txt")
+# X_test, y_test, mask_test, ids_test, predicted_evidence_test = process_data("NN-NLP-Project-Data/test_sent_results.txt")
 
 train_dataset = TensorDataset(X_train, y_train, mask_train)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=32, num_workers=8)
@@ -56,8 +56,8 @@ train_loader = DataLoader(train_dataset, shuffle=True, batch_size=32, num_worker
 dev_dataset = TensorDataset(X_dev, y_dev, mask_dev)
 dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=32, num_workers=8)
 
-test_dataset = TensorDataset(X_test, y_test, mask_test)
-test_loader = DataLoader(test_dataset, shuffle=False, batch_size=32, num_workers=8)
+# test_dataset = TensorDataset(X_test, y_test, mask_test)
+# test_loader = DataLoader(dev_dataset, shuffle=False, batch_size=32, num_workers=8)
 
 optimizer = AdamW(model.parameters(), lr=2e-5)
 
@@ -177,8 +177,8 @@ preds = test(model, dev_loader)
 preds_dict = merge_preds(preds, ids_dev, predicted_evidence_dev)
 format_output('dev.jsonl', 'dev_results.txt', preds_dict)
 
-# Test Set
-preds = test(model, test_loader)
-preds_dict = merge_preds(preds, ids_test, predicted_evidence_test)
-format_output('test.jsonl', 'test_results.txt', preds_dict, dev=False)
+# # Test Set
+# preds = test(model, test_loader)
+# preds_dict = merge_preds(preds, ids_test, predicted_evidence_test)
+# format_output('test.jsonl', 'test_results.txt', preds_dict, dev=False)
 

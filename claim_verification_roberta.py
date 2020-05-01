@@ -46,9 +46,9 @@ def process_data(fname, train=True):
         
     return torch.LongTensor(X), torch.LongTensor(y), torch.LongTensor(mask), claim_ids, predicted_evidence
 
-X_train, y_train, mask_train, ids_train, predicted_evidence_train = process_data("NN-NLP-Project-Data/train_sent_results.txt")
-X_dev, y_dev, mask_dev, ids_dev, predicted_evidence_dev = process_data("NN-NLP-Project-Data/dev_sent_results.txt")
-# X_test, y_test, mask_test, ids_test, predicted_evidence_test = process_data("NN-NLP-Project-Data/test_sent_results.txt")
+X_train, y_train, mask_train, ids_train, predicted_evidence_train = process_data("train_sent_results.txt")
+X_dev, y_dev, mask_dev, ids_dev, predicted_evidence_dev = process_data("dev_sent_results.txt")
+X_test, y_test, mask_test, ids_test, predicted_evidence_test = process_data("test_sent_results.txt")
 
 train_dataset = TensorDataset(X_train, y_train, mask_train)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=32, num_workers=8)
@@ -56,8 +56,8 @@ train_loader = DataLoader(train_dataset, shuffle=True, batch_size=32, num_worker
 dev_dataset = TensorDataset(X_dev, y_dev, mask_dev)
 dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=32, num_workers=8)
 
-# test_dataset = TensorDataset(X_test, y_test, mask_test)
-# test_loader = DataLoader(dev_dataset, shuffle=False, batch_size=32, num_workers=8)
+test_dataset = TensorDataset(X_test, y_test, mask_test)
+test_loader = DataLoader(test_dataset, shuffle=False, batch_size=32, num_workers=8)
 
 optimizer = AdamW(model.parameters(), lr=2e-5)
 
@@ -168,17 +168,21 @@ def format_output(in_path, out_path, preds_dict, dev=True):
             json.dump(line, f)
             f.write("\n")
 
+# print('Loading model')
+# model.load_state_dict(torch.load(model_name))
+# model.to(device)
+
 for i in range(NUM_EPOCHS):
     x = train(model, train_loader, optimizer)
     torch.save(model.state_dict(), model_name)
 
-# Dev Set
+Dev Set
 preds = test(model, dev_loader)
 preds_dict = merge_preds(preds, ids_dev, predicted_evidence_dev)
 format_output('dev.jsonl', 'dev_results.txt', preds_dict)
 
-# # Test Set
-# preds = test(model, test_loader)
-# preds_dict = merge_preds(preds, ids_test, predicted_evidence_test)
-# format_output('test.jsonl', 'test_results.txt', preds_dict, dev=False)
+# Test Set
+preds = test(model, test_loader)
+preds_dict = merge_preds(preds, ids_test, predicted_evidence_test)
+format_output('test.jsonl', 'test_results.txt', preds_dict, dev=False)
 
