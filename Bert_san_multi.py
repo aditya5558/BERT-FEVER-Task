@@ -40,12 +40,12 @@ def process_data(fname, train=True):
         claim_ids.append(line['id'])
         predicted_evidence.append([line['doc'], line['sid']])
 
-        emb = tokenizer.encode_plus(line['claim'], line["sentence"], pad_to_max_length=True)
+        emb = tokenizer.encode_plus(line['claim'], line["sentence"], pad_to_max_length=True, max_length=256)
         input_ids, sent_ids, m = emb['input_ids'], emb['token_type_ids'], emb['attention_mask']
 
-        X.append(input_ids[:128])
-        mask.append(m[:128])
-        token_type_ids.append(sent_ids[:128])
+        X.append(input_ids[:256])
+        mask.append(m[:256])
+        token_type_ids.append(sent_ids[:256])
 
         y.append(label_dict[line['label']])
     f.close()
