@@ -1,8 +1,11 @@
-from transformers import RobertaTokenizer, RobertaForSequenceClassification, AdamW
+from transformers import BertTokenizer, BertForSequenceClassification, AdamW, BertForTokenClassification, BertModel
 import torch, tqdm, json
 import numpy as np
-from torch.utils.data import DataLoader, Dataset, TensorDataset
-from scorer import fever_score
+from torch.utils.data import DataLoader, Dataset
+from torch import nn
+import torch.nn.functional as F
+import random
+from scorer impbort fever_score
 from Bert_SAN import *
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
