@@ -17,6 +17,7 @@ To replicate Soleimani et al. results, run code in the following order:
 1. [doc_retrieval.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/SOTA%20Reimplementation/doc_retrieval.py): retrieves docs using the MediaWiki API  
 2. [sentence_retrieval.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/SOTA%20Reimplementation/sentence_retrieval.py): retrieves top 5 sentences for every claim  
 3. [claim_verification.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/SOTA%20Reimplementation/claim_verification.py): classifies the top 5 sentences for every claim  
+
 Files for other specific implementations inside respective folders.
 
 
