@@ -1,37 +1,39 @@
-# BERT-FEVER-Task
-Neural Networks for NLP Project
+## Neural Networks for NLP Project: Fact Extraction and Verification
 
 ### Authors
 Aditya Anantharaman (AndrewID: adityaan)  
 Derik Clive Robert (AndrewID: dclive)  
 Abhinav Khattar (AndrewID: akhattar)  
 
-### General
-The repo contains .py files required to run the code.  
-To replicate results, run code in the following order:  
-1. [doc_retrieval.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/doc_retrieval.py): retrieves docs using the MediaWiki API  
-2. [sentence_retrieval.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/sentence_retrieval.py): retrieves top 5 sentences for every claim  
-3. [claim_verification.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/claim_verification.py): classifies the top 5 sentences for every claim  
-
-[Bert.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/Bert.py) contains our implementation of BertEncoder from scratch.
-
-[tokenization.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/tokenization.py) is taken from the official Bert repo and is used to tokenize data to feed to the models.
-
-[scorer.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/scorer.py) is the official scoring script provided by the authors of the FEVER Task.
-
-[Utils folder](https://github.com/aditya5558/BERT-FEVER-Task/tree/master/utils) contains utilities to preprocess and normalize data, and generate helpful plots. You may require scripts from this folder to ensure that data is in the format our main code can parse.
-
-[Auxiliary folder](https://github.com/aditya5558/BERT-FEVER-Task/tree/master/auxiliary) contains code that uses PyTorch transformer to achieve the same task, along with a few extra ipynb files. We have not used any of the scripts in this folder for getting our final results.
+### About the Project
+The increasing cases of manipulation of facts, misleading information and unverified claims make automatic fact verification an important task. The Fact Extraction and Verification (FEVER) Shared Task provides a large-scale dataset of claims and Wikipedia documents as evidence to verify these claims. In this work, we tackle this task by building an end-to-end neural model which given a claim, extracts relevant documents, then matches informative sentences in these documents with the claim to verify the claim. We build upon the BERT based approach proposed by Soleimani et al. and strengthen the claim verification module using Multi-Task Deep Neural Networks (MT-DNN) and Stochastic Answer Networks (SAN) in addition to multi-hop evidence reasoning. We show that our approach is able to outperform even the BERT-Large model proposed by Soleimani et al. using the BERT-Base architecture in terms of label accuracy which showcases the effectiveness of our improved claim verification model. 
 
 ### Pipeline
 ![Pipeline](img/flowchart.png "Pipeline")
 
-### Results
-![Results](img/results.jpeg "Results")
+### General
+The repo contains .py files required to run the code.  
+To replicate Soleimani et al. results, run code in the following order:  
+1. [doc_retrieval.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/SOTA%20Reimplementation/doc_retrieval.py): retrieves docs using the MediaWiki API  
+2. [sentence_retrieval.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/SOTA%20Reimplementation/sentence_retrieval.py): retrieves top 5 sentences for every claim  
+3. [claim_verification.py](https://github.com/aditya5558/BERT-FEVER-Task/blob/master/SOTA%20Reimplementation/claim_verification.py): classifies the top 5 sentences for every claim  
+Files for other specific implementations inside respective folders.
 
-### Report
-All other description of the project along with the architecture is present in the report.pdf
+
+### Dev Set Results
+
+|Model |Fever Score (\%)|Label Accuracy (\%) |
+|:-:|:-:|:-:|
+ |BERT-Pointwise (Soleimani et al.) | 71.38 | 73.5|
+ |BERT-Large (Pointwise + HNM) (Soleimani et al.) | **72.42** | 74.59|
+|BERT-Pointwise re-implementation | 68.11 | 71.13 |
+|XLNet | 69.13 | 72.96|
+|RoBERTa | 69.89 | 73.11|
+|RoBERTa Multi-hop | 70.55 | 74.95|
+ |MT-DNN Multi-hop | 70.02| 74.82|
+ |MT-DNN + SAN Multi-hop | 70.52| **75.17**|
+
 
 ### Reference
-Implementation of technique proposed by:  
+Repo inspired by:  
 [BERT for Evidence Retrieval and Claim Verification](https://arxiv.org/pdf/1910.02655.pdf) by Soleimani et al.
